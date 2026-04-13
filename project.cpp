@@ -23,7 +23,7 @@ typedef Flt Matrix[4][4];
 void identity33(Matrix m);
 void yy_transform(const Vec rotate, Matrix a);
 void trans_vector(Matrix mat, const Vec in, Vec out);
-void screenShot();
+//void screenShot();
 void cube(float w1, float h1, float d1);
 void tube(int n, float rad, float len);
 
@@ -281,6 +281,7 @@ public:
 	int start_screen;
 	time_t timeStart;
 	time_t timeCurrent;
+	int fps;
 
   const float HALLWAY_WIDTH  = 12.0f;
   const float HALLWAY_HEIGHT = 10.0f;
@@ -296,6 +297,7 @@ public:
 		lightPosition[3] = 1.0f;
 		//init_opengl();
 		state = 1;
+		fps = 0;
 		//state = 1 is player 
 		//state = 0 is free move
 		start_screen = 1;
@@ -455,7 +457,9 @@ int main()
 	g.init_opengl();
   srand(time(NULL));
 	int done = 0;
+	int nframes = 0;
 	g.timeStart = time(nullptr);
+	int starttime = time(NULL);
 
 	while (!done) {
 		while (x11.getXPending()) {
@@ -466,8 +470,15 @@ int main()
 		}
 		g.physics();
 		g.render();
-		if (take_ss) {
+		/*if (take_ss) {
 			screenShot();
+		}*/
+		++nframes;
+		int currtime = time(NULL);
+		if (currtime > starttime) {
+			starttime = currtime;
+			g.fps = nframes;
+			nframes = 0;
 		}
 		x11.swapBuffers();
 	}
@@ -597,7 +608,7 @@ int Global::check_keys(XEvent *e)
 		int key = (XLookupKeysym(&e->xkey, 0) & 0x0000ffff);
 		switch(key) {
 			case XK_1:
-				take_ss = !take_ss;
+				//take_ss = !take_ss;
 				break;
 			case XK_2:
 				system("convert -loop 0 -coalesce -layers OptimizeFrame -delay 20 ./images/img*.jpg abc.gif");
@@ -1016,6 +1027,7 @@ void Global::render()
 	Rect r;
 
 
+
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 	//3D mode
 	glMatrixMode(GL_PROJECTION);
@@ -1074,13 +1086,14 @@ void Global::render()
 	r.center = 0;
 	ggprint8b(&r, 16, 0x00887766, "UNCANNY VALLEY");
 	ggprint8b(&r, 16, 0x00ff00ff, "use WASD to MOVE");
-  ggprint8b(&r, 16, 0x00ff00ff, "use SPACE to JUMP");
+  	ggprint8b(&r, 16, 0x00ff00ff, "use SPACE to JUMP");
 	ggprint8b(&r, 16, 0x00ff00ff, "use ARROW KEYS to LOOK AROUND");
+	ggprint8b(&r, 16, 0x0000ff00, "FPS: %i", g.fps);
 	glPopAttrib();
 }
 }
 
-
+/*
 void screenShot()
 {
     //A capture of the OpenGL window client area.
@@ -1117,3 +1130,4 @@ void screenShot()
     system(t2);
     unlink(ts);
 }
+*/
