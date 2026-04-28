@@ -1,7 +1,7 @@
 all: project
 
 project: project.cpp
-	g++ project.cpp -Wall -lX11 -lGL -lGLU -lm ./libggfonts.a -o project
+	g++ project.cpp math_utils.cpp geometry.cpp -Wall -lX11 -lGL -lGLU -lm ./libggfonts.a -o project
 
 clean:
 	rm -f project
