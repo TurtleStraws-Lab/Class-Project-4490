@@ -74,6 +74,13 @@ static bool playerHitsPillar(float x, float z)
 }
 
 
+struct Coin {
+    float x, y, z;
+    bool collected;
+};
+
+const int NUM_COINS = 3;
+Coin coins[NUM_COINS];
 
 
 class Global {
@@ -96,6 +103,8 @@ public:
     int game_sound_played;
     int start_countdown;
     double remaining;
+    int coins_collected;
+    bool door_unlocked;
     Global() {
         xres = 800;
         yres = 600;
@@ -112,6 +121,8 @@ public:
         game_sound_played = 0;
         start_countdown = 0;
         remaining = 0.0;
+        coins_collected = 0;
+        door_unlocked = false;
     }
 
     void init_opengl();
@@ -213,10 +224,25 @@ public:
     void swapBuffers() { glXSwapBuffers(dpy, win); }
 } x11;
 
+void spawnCoins() {
+    // Fixed positions spread around the room, away from walls
+    float positions[NUM_COINS][2] = {
+        { -30.0f, -30.0f },
+        {  30.0f, 10.0f },
+        { -10.0f, 40.0f }
+    };
+    for (int i = 0; i < NUM_COINS; i++) {
+        coins[i].x = positions[i][0];
+        coins[i].y = 1.5f;  // just above the floor
+        coins[i].z = positions[i][1];
+        coins[i].collected = false;
+    }
+}
 
 int main()
 {
     g.init_opengl();
+    spawnCoins();
     sound_init();
     scary_face.upload();
     srand(time(NULL));
@@ -368,78 +394,60 @@ int Global::check_keys(XEvent *e)
         keys[key] = false;
     }
 
-    bool moved = false;
-    const float step = 0.35f;
+bool moved = false;
+const float step = 0.35f;
 
-    // Move in the XZ plane, but only collide with the room bounds and pillars.
-    // No invisible maze-wall collision.
-    if (keys[XK_w] || keys[XK_s] || keys[XK_a] || keys[XK_d]) {
-        float oldX = g.camera.position[0];
-        float oldZ = g.camera.position[2];
+float dx = 0.0f;
+float dz = 0.0f;
 
-        float dx = 0.0f;
-        float dz = 0.0f;
+// get forward direction (XZ plane only)
+float fx = g.camera.direction[0];
+float fz = g.camera.direction[2];
+float flen = sqrtf(fx*fx + fz*fz);
+if (flen > 0.0001f) { fx /= flen; fz /= flen; }
 
-        // forward/back
-        if (keys[XK_w]) {
-            dx += g.camera.direction[0];
-            dz += g.camera.direction[2];
-        }
-        if (keys[XK_s]) {
-            dx -= g.camera.direction[0];
-            dz -= g.camera.direction[2];
-        }
+// get strafe direction (perpendicular to forward)
+float sx = -fz;
+float sz =  fx;
 
-        // strafe left/right using a 2D perpendicular to forward direction
-        float fx = g.camera.direction[0];
-        float fz = g.camera.direction[2];
-        float len = sqrtf(fx * fx + fz * fz);
-        if (len < 0.0001f) len = 1.0f;
-        fx /= len;
-        fz /= len;
+if (keys[XK_w]) { dx += fx; dz += fz; }
+if (keys[XK_s]) { dx -= fx; dz -= fz; }
+if (keys[XK_d]) { dx += sx; dz += sz; }
+if (keys[XK_a]) { dx -= sx; dz -= sz; }
 
-        float sx = -fz;
-        float sz = fx;
-
-        if (keys[XK_d]) {
-            dx += sx;
-            dz += sz;
-        }
-        if (keys[XK_a]) {
-            dx -= sx;
-            dz -= sz;
-        }
-
-        dx *= step;
-        dz *= step;
-
-        g.camera.position[0] += dx;
-        g.camera.position[2] += dz;
-
-        clampPlayerToRoom(g.camera);
-
-        // Try separating axes so player slides along pillar instead of getting stuck
-
-if (playerHitsPillar(g.camera.position[0], g.camera.position[2])) {
-    // try sliding along X only
-    g.camera.position[0] = oldX + dx;
-    g.camera.position[2] = oldZ;
-    if (playerHitsPillar(g.camera.position[0], g.camera.position[2])) {
-        // try sliding along Z only
-        g.camera.position[0] = oldX;
-        g.camera.position[2] = oldZ + dz;
-        if (playerHitsPillar(g.camera.position[0], g.camera.position[2])) {
-            // fully blocked
-            g.camera.position[0] = oldX;
-            g.camera.position[2] = oldZ;
-        }
-    }
+// NORMALIZE so diagonal isn't faster than straight
+float len = sqrtf(dx*dx + dz*dz);
+if (len > 0.0001f) {
+    dx = (dx / len) * step;
+    dz = (dz / len) * step;
 }
 
+if (dx != 0.0f || dz != 0.0f) {
+    float oldX = g.camera.position[0];
+    float oldZ = g.camera.position[2];
 
-////////////
-        moved = true;
+    g.camera.position[0] += dx;
+    g.camera.position[2] += dz;
+
+    clampPlayerToRoom(g.camera);
+
+    if (playerHitsPillar(g.camera.position[0], g.camera.position[2])) {
+        // try X only
+        g.camera.position[0] = oldX + dx;
+        g.camera.position[2] = oldZ;
+        if (playerHitsPillar(g.camera.position[0], g.camera.position[2])) {
+            // try Z only
+            g.camera.position[0] = oldX;
+            g.camera.position[2] = oldZ + dz;
+            if (playerHitsPillar(g.camera.position[0], g.camera.position[2])) {
+                // fully blocked
+                g.camera.position[0] = oldX;
+                g.camera.position[2] = oldZ;
+            }
+        }
     }
+    moved = true;
+}
 
     if (keys[XK_u]) {
         g.camera.translate(0.0, 0.2, 0.0);
@@ -478,13 +486,30 @@ void Global::physics()
     }
     enemy.update(camera);
 
-// Exit door on positive Z wall, centered
-const float EXIT_X  = 0.0f;
-const float EXIT_Z  = ROOM_HALF - 2.0f;
-const float EXIT_RAD = 4.0f;
+// Coin collection
+const float COIN_RADIUS = 2.5f;
+for (int i = 0; i < NUM_COINS; i++) {
+    if (coins[i].collected) continue;
+    float dx = camera.position[0] - coins[i].x;
+    float dz = camera.position[2] - coins[i].z;
+    float dist = sqrtf(dx*dx + dz*dz);
+    if (dist < COIN_RADIUS) {
+        coins[i].collected = true;
+        g.coins_collected++;
+        if (g.coins_collected >= NUM_COINS) {
+            g.door_unlocked = true;
+        }
+    }
+}
+
+// Exit trigger — only if door unlocked
+const float EXIT_X   = 0.0f;
+const float EXIT_Z   = ROOM_HALF - 2.0f;
+const float EXIT_RAD = 5.0f;
 float ex = camera.position[0] - EXIT_X;
 float ez = camera.position[2] - EXIT_Z;
-if (sqrtf(ex*ex + ez*ez) < EXIT_RAD && !g.win_screen && !g.lose_screen) {
+if (sqrtf(ex*ex + ez*ez) < EXIT_RAD && g.door_unlocked
+        && !g.win_screen && !g.lose_screen) {
     g.win_screen = 1;
 }
 
@@ -737,19 +762,50 @@ void Global::render()
         glPopMatrix();
 
         drawHallway();
-        
-// Green glowing exit door on far Z wall
+
+        // Draw coins
 glDisable(GL_LIGHTING);
 glDisable(GL_TEXTURE_2D);
-glColor4f(0.0f, 1.0f, 0.3f, 1.0f);
-glBegin(GL_QUADS);
-    glVertex3f(-4.0f, 0.0f,  ROOM_HALF - 2.0f);
-    glVertex3f( 4.0f, 0.0f,  ROOM_HALF - 2.0f);
-    glVertex3f( 4.0f, 8.0f,  ROOM_HALF - 2.0f);
-    glVertex3f(-4.0f, 8.0f,  ROOM_HALF - 2.0f);
-glEnd();
+glDisable(GL_COLOR_MATERIAL);
+static float coinAngle = 0.0f;
+coinAngle += 1.5f;  // spin speed
+for (int i = 0; i < NUM_COINS; i++) {
+    if (coins[i].collected) continue;
+    glPushMatrix();
+    glTranslatef(coins[i].x, coins[i].y, coins[i].z);
+    glRotatef(coinAngle, 0.0f, 1.0f, 0.0f);  // spin on Y axis
+    glColor3f(1.0f, 0.85f, 0.0f);            // gold yellow
+    // draw as a flat square (coin face)
+    glBegin(GL_QUADS);
+        glVertex3f(-1.0f, -1.0f, 0.0f);
+        glVertex3f( 1.0f, -1.0f, 0.0f);
+        glVertex3f( 1.0f,  1.0f, 0.0f);
+        glVertex3f(-1.0f,  1.0f, 0.0f);
+    glEnd();
+    glPopMatrix();
+}
+glEnable(GL_COLOR_MATERIAL);
 glEnable(GL_LIGHTING);
 glEnable(GL_TEXTURE_2D);
+
+// Draw door only if unlocked
+if (g.door_unlocked) {
+    glDisable(GL_LIGHTING);
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_COLOR_MATERIAL);
+    glColor3f(0.0f, 1.0f, 0.0f);
+    glBegin(GL_QUADS);
+        glVertex3f(-4.0f, 0.0f, ROOM_HALF - 2.0f);
+        glVertex3f( 4.0f, 0.0f, ROOM_HALF - 2.0f);
+        glVertex3f( 4.0f, 8.0f, ROOM_HALF - 2.0f);
+        glVertex3f(-4.0f, 8.0f, ROOM_HALF - 2.0f);
+    glEnd();
+    glEnable(GL_COLOR_MATERIAL);
+    glEnable(GL_LIGHTING);
+    glEnable(GL_TEXTURE_2D);
+}
+
+        
 
         enemy.draw();
 
@@ -765,6 +821,12 @@ glEnable(GL_TEXTURE_2D);
         r.bot = g.yres - 20; r.left = 10; r.center = 0;
         ggprint8b(&r, 16, 0x00887766, "UNCANNY Hallway");
         ggprint8b(&r, 16, 0x00ff00ff, "use WASD to MOVE");
+        ggprint8b(&r, 16, 0x00ffdd00, "Coins: %i / %i", g.coins_collected, NUM_COINS);
+if (!g.door_unlocked) {
+    ggprint8b(&r, 16, 0x00ff4444, "Find all coins to unlock the exit!");
+} else {
+    ggprint8b(&r, 16, 0x0000ff00, "Exit unlocked! Find the green door!");
+}
         ggprint8b(&r, 16, 0x00ff00ff, "use SPACE to JUMP");
         ggprint8b(&r, 16, 0x00ff00ff, "use ARROW KEYS to LOOK AROUND");
         ggprint8b(&r, 16, 0x0000ff00, "FPS: %i", g.fps);
