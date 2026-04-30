@@ -101,7 +101,9 @@ public:
     int fps;
     int intro_sound_played;
     int game_sound_played;
+    int win_sound_played;
     int start_countdown;
+    int jump_scare_done;
     double remaining;
     int coins_collected;
     bool door_unlocked;
@@ -119,7 +121,9 @@ public:
         win_screen = 0;
         intro_sound_played = 0;
         game_sound_played = 0;
+        win_sound_played = 0;
         start_countdown = 0;
+        jump_scare_done = 0;
         remaining = 0.0;
         coins_collected = 0;
         door_unlocked = false;
@@ -330,6 +334,8 @@ void Global::check_mouse(XEvent *e)
                 g.lose_screen = 0;
                 g.win_screen = 0;
                 g.start_countdown = 0;
+                g.win_sound_played = 0;
+                jump_scare_done = 0;
             }
         }
         if (e->xbutton.button == 3) {
@@ -520,7 +526,7 @@ void Global::render()
     g.timeCurrent = time(nullptr);
     double elapsed = difftime(timeCurrent, timeStart);
 
-    if (g.start_screen && (elapsed < 9.0)) {
+    if (g.start_screen && (elapsed < 6.0)) {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
         glViewport(0, 0, g.xres, g.yres);
@@ -530,14 +536,14 @@ void Global::render()
         glPushAttrib(GL_ENABLE_BIT);
         glDisable(GL_LIGHTING);
 
-        if (elapsed > 5.0) {
+        if (elapsed > 3.0) {
             if (!g.intro_sound_played) {
                 alSourcei(srcIntro, AL_LOOPING, AL_FALSE);
                 alSourcePlay(srcIntro);
                 g.intro_sound_played = 1;
             }
 
-            float t = (float)(elapsed - 5.0) / 1.5f;
+            float t = (float)(elapsed - 3.0) / 3.0f;
             if (t > 1.0f) t = 1.0f;
             float maxW = 300.0f, maxH = 300.0f;
             float w = 10.0f + (maxW - 10.0f) * t;
@@ -558,11 +564,22 @@ void Global::render()
         }
 
         Rect r;
-        r.bot = g.yres - 50; r.left = g.xres / 2; r.center = 20;
+        r.bot = g.yres - 50; 
+        r.left = g.xres / 2; 
+        r.center = 20;
         ggprint16(&r, 16, 0x00ffffff, "UNCANNY VALLEY");
         Rect r2;
-        r2.bot = (int)(g.yres * 0.15f); r2.left = g.xres / 2; r2.center = 20;
+        r2.bot = (int)(g.yres * 0.15f); 
+        r2.left = g.xres / 2; 
+        r2.center = 20;
         ggprint12(&r2, 16, 0x00ffffff, "Press 4 to Skip");
+        if (elapsed < 3.0 && elapsed > 0.5) {
+            Rect r3;
+            r3.bot = g.yres /2; 
+            r3.left = g.xres / 2; 
+            r3.center = 20;
+            ggprint12(&r3, 16, 0x00ffffff, "A scary game made by Moises, Jaden, and Haonan");
+        }
         glPopAttrib();
 
     } else if (g.start_screen) {
@@ -575,7 +592,8 @@ void Global::render()
         g.menu_screen  = 1;
 
     } else if (g.menu_screen) {
-        if (!g.game_sound_played) {
+        if (g.game_sound_played == 0) {
+            
             alSourcei(srcMenu, AL_LOOPING, AL_TRUE);
             alSourcePlay(srcMenu);
             g.game_sound_played = 1;
@@ -618,6 +636,11 @@ void Global::render()
         glPopAttrib();
 
     } else if (g.win_screen) {
+        if (!g.win_sound_played) {
+            alSourcei(srcWin, AL_LOOPING, AL_FALSE);
+            alSourcePlay(srcWin);
+            g.win_sound_played = 1;
+        }
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
         glViewport(0, 0, g.xres, g.yres);
@@ -660,47 +683,78 @@ void Global::render()
         glEnable(GL_DEPTH_TEST);
         glPopAttrib(); 
     } else if(g.lose_screen) {
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-        glViewport(0, 0, g.xres, g.yres);
-        glMatrixMode(GL_PROJECTION); glLoadIdentity();
-        gluOrtho2D(0, g.xres, 0, g.yres);
-        glMatrixMode(GL_MODELVIEW); glLoadIdentity();
-        glPushAttrib(GL_ENABLE_BIT);
-        glDisable(GL_LIGHTING);
+        static time_t lose_start = 0;
+        if (lose_start == 0) {
+            lose_start = time(nullptr);
+        }
+        double lose_time_elap = difftime(time(nullptr), lose_start);
+        if (lose_time_elap < 3.0 && g.jump_scare_done == 0) {
+            if (lose_time_elap < 0.0001) {
+                alSourcei(srcIntro, AL_LOOPING, AL_FALSE);
+                alSourcePlay(srcIntro);
+            }
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, scary_face.texid);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glBegin(GL_QUADS);
+                glTexCoord2f(0,1); glVertex2f(0, 0);
+                glTexCoord2f(1,1); glVertex2f(g.xres, 0);
+                glTexCoord2f(1,0); glVertex2f(g.xres, g.yres);
+                glTexCoord2f(0,0); glVertex2f(0, g.yres);
+            glEnd();
+            glDisable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, 0);
 
-        int bw = 200, bh = 60;
-        int cx = g.xres / 2, cy = g.yres / 2;
-        glDisable(GL_DEPTH_TEST);
+        } else {
+            g.jump_scare_done = 1;
+            alSourceStop(srcIntro);
 
-        glColor4f(0.1f, 0.1f, 0.1f, 0.85f);
-        glBegin(GL_QUADS);
-            glVertex2f(cx-bw/2, cy-bh/2); glVertex2f(cx+bw/2, cy-bh/2);
-            glVertex2f(cx+bw/2, cy+bh/2); glVertex2f(cx-bw/2, cy+bh/2);
-        glEnd();
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+            glViewport(0, 0, g.xres, g.yres);
+            glMatrixMode(GL_PROJECTION); glLoadIdentity();
+            gluOrtho2D(0, g.xres, 0, g.yres);
+            glMatrixMode(GL_MODELVIEW); glLoadIdentity();
+            glPushAttrib(GL_ENABLE_BIT);       
+            glDisable(GL_LIGHTING);           
 
-        glColor3f(1.0f, 1.0f, 1.0f);
-        glLineWidth(2.0f);
-        glBegin(GL_LINE_LOOP);
-            glVertex2f(cx-bw/2, cy-bh/2); glVertex2f(cx+bw/2, cy-bh/2);
-            glVertex2f(cx+bw/2, cy+bh/2); glVertex2f(cx-bw/2, cy+bh/2);
-        glEnd();
+            int bw = 200, bh = 60;
+            int cx = g.xres / 2, cy = g.yres / 2;
+            glDisable(GL_DEPTH_TEST);
 
-        Rect r;
-        r.bot = g.yres - 150; 
-        r.left = g.xres / 2; 
-        r.center = 20;
-        ggprint16(&r, 16, 0x00ffffff, "The Monster Caught You");
-        ggprint16(&r, 16, 0x00ffffff, "You Have Failed To Escape");
+            glColor4f(0.1f, 0.1f, 0.1f, 0.85f);
+            glBegin(GL_QUADS);
+                glVertex2f(cx-bw/2, cy-bh/2); glVertex2f(cx+bw/2, cy-bh/2);
+                glVertex2f(cx+bw/2, cy+bh/2); glVertex2f(cx-bw/2, cy+bh/2);
+            glEnd();
 
-        Rect r2;
-        r2.bot = cy; 
-        r2.left = cx; 
-        r2.center = 20;
-        ggprint12(&r2, 16, 0x00ffffff, "Back to Menu");
+            glColor3f(1.0f, 1.0f, 1.0f);
+            glLineWidth(2.0f);
+            glBegin(GL_LINE_LOOP);
+                glVertex2f(cx-bw/2, cy-bh/2); glVertex2f(cx+bw/2, cy-bh/2);
+                glVertex2f(cx+bw/2, cy+bh/2); glVertex2f(cx-bw/2, cy+bh/2);
+            glEnd();
+            glMatrixMode(GL_TEXTURE);
+            glLoadIdentity();
+            glMatrixMode(GL_MODELVIEW);
 
-        glEnable(GL_DEPTH_TEST);
-        glPopAttrib();
+            initialize_fonts();
+            Rect r;
+            r.bot = g.yres - 150;
+            r.left = g.xres / 2;
+            r.center = 20;
+            ggprint16(&r, 16, 0x00ffffff, "The Monster Caught You");
+            ggprint16(&r, 16, 0x00ffffff, "You Have Failed To Escape");
+
+            Rect r2;
+            r2.bot = cy;
+            r2.left = cx;
+            r2.center = 20;
+            ggprint12(&r2, 16, 0x00ffffff, "Back to Menu");
+
+            glEnable(GL_DEPTH_TEST);
+            glPopAttrib();      
+        }
 
     } else {
         if (g.game_sound_played == 0) {
@@ -723,7 +777,7 @@ void Global::render()
                 alSourcei(srcNotime, AL_LOOPING, AL_TRUE);
                 alSourcePlay(srcNotime);
             }
-                */
+            */
             if (g.remaining <= 0) {
                 g.remaining = 0;
                 g.lose_screen = 1;
