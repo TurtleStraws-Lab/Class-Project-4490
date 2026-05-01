@@ -164,7 +164,7 @@ void drawHallway()
 
             glColor3ub(130,130,90);
             glPushMatrix();
-            glTranslatef(cx, HEIGHT/2, cz); // ✅ FIXED (was misaligned before)
+            glTranslatef(cx, HEIGHT/2, cz);
             cube(cell * 0.3f, HEIGHT, cell * 0.3f);
             glPopMatrix();
         }
