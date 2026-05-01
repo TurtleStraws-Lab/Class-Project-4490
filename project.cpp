@@ -579,58 +579,54 @@ void render_lose()
         }
 
         //render_jumpscare();
-    } else {
-        //alSourceStop(srcIntro);
-        g.jump_scare_done = 1;
-        //initialize_fonts();
-        //render_win();
-        
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-        glViewport(0, 0, g.xres, g.yres);
-        glMatrixMode(GL_PROJECTION); glLoadIdentity();
-        gluOrtho2D(0, g.xres, 0, g.yres);
-        glMatrixMode(GL_MODELVIEW); glLoadIdentity();
-        glPushAttrib(GL_ENABLE_BIT);
-        glDisable(GL_LIGHTING);
-
-        int bw = 200, bh = 60;
-        int cx = g.xres / 2, cy = g.yres / 2;
-        glDisable(GL_DEPTH_TEST);
-        glColor4f(0.1f, 0.1f, 0.1f, 0.85f);
-        glBegin(GL_QUADS);
-            glVertex2f(cx-bw/2, cy-bh/2); glVertex2f(cx+bw/2, cy-bh/2);
-            glVertex2f(cx+bw/2, cy+bh/2); glVertex2f(cx-bw/2, cy+bh/2);
-        glEnd();
-        glColor3f(1.0f, 1.0f, 1.0f);
-        glLineWidth(2.0f);
-        glBegin(GL_LINE_LOOP);
-            glVertex2f(cx-bw/2, cy-bh/2); glVertex2f(cx+bw/2, cy-bh/2);
-            glVertex2f(cx+bw/2, cy+bh/2); glVertex2f(cx-bw/2, cy+bh/2);
-        glEnd();
-        glMatrixMode(GL_TEXTURE);
-        glLoadIdentity();
-        glMatrixMode(GL_MODELVIEW);
-        
-        glDisable(GL_DEPTH_TEST);
-        //glPopAttrib();
-        Rect r;
-        r.bot = g.yres - 150;
-        r.left = g.xres / 2;
-        r.center = 20;
-        ggprint16(&r, 16, 0x00ffffff, "The Monster Caught You");
-        ggprint16(&r, 16, 0x00ffffff, "You Have Failed To Escape");
-        Rect r2;
-        r2.bot = cy;
-        r2.left = cx;
-        r2.center = 20;
-        ggprint12(&r2, 16, 0x00ffffff, "Back to Menu");
-        glEnable(GL_DEPTH_TEST);
-        glPopAttrib();
-        
-    }
-
+    } else 
+    //alSourceStop(srcIntro);
+    g.jump_scare_done = 1;
+    //initialize_fonts();
+    //render_win();
     
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+    glViewport(0, 0, g.xres, g.yres);
+    glMatrixMode(GL_PROJECTION); glLoadIdentity();
+    gluOrtho2D(0, g.xres, 0, g.yres);
+    glMatrixMode(GL_MODELVIEW); glLoadIdentity();
+    glPushAttrib(GL_ENABLE_BIT);
+    glDisable(GL_LIGHTING);
+
+    int bw = 200, bh = 60;
+    int cx = g.xres / 2, cy = g.yres / 2;
+    glDisable(GL_DEPTH_TEST);
+    glColor4f(0.1f, 0.1f, 0.1f, 0.85f);
+    glBegin(GL_QUADS);
+        glVertex2f(cx-bw/2, cy-bh/2); glVertex2f(cx+bw/2, cy-bh/2);
+        glVertex2f(cx+bw/2, cy+bh/2); glVertex2f(cx-bw/2, cy+bh/2);
+    glEnd();
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glLineWidth(2.0f);
+    glBegin(GL_LINE_LOOP);
+        glVertex2f(cx-bw/2, cy-bh/2); glVertex2f(cx+bw/2, cy-bh/2);
+        glVertex2f(cx+bw/2, cy+bh/2); glVertex2f(cx-bw/2, cy+bh/2);
+    glEnd();
+    glMatrixMode(GL_TEXTURE);
+    glLoadIdentity();
+    glMatrixMode(GL_MODELVIEW);
+    
+    glDisable(GL_DEPTH_TEST);
+    //glPopAttrib();
+    Rect r;
+    r.bot = g.yres - 150;
+    r.left = g.xres / 2;
+    r.center = 20;
+    ggprint16(&r, 16, 0x00ffffff, "The Monster Caught You");
+    ggprint16(&r, 16, 0x00ffffff, "You Have Failed To Escape");
+    Rect r2;
+    r2.bot = cy;
+    r2.left = cx;
+    r2.center = 20;
+    ggprint12(&r2, 16, 0x00ffffff, "Back to Menu");
+    glEnable(GL_DEPTH_TEST);
+    glPopAttrib();
         
 }
 
