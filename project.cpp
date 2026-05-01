@@ -546,8 +546,21 @@ if (sqrtf(ex*ex + ez*ez) < EXIT_RAD && g.door_unlocked
 
 }
 
+
+
 void render_jumpscare()
 {
+    // save whatever texture was bound before
+    GLint savedTex = 0;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &savedTex);
+
+    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+    glViewport(0, 0, g.xres, g.yres);
+    glMatrixMode(GL_PROJECTION); glLoadIdentity();
+    gluOrtho2D(0, g.xres, 0, g.yres);
+    glMatrixMode(GL_MODELVIEW); glLoadIdentity();
+    glDisable(GL_LIGHTING);
+    glDisable(GL_DEPTH_TEST);
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, scary_face.texid);
     glColor3f(1.0f, 1.0f, 1.0f);
@@ -557,28 +570,19 @@ void render_jumpscare()
         glTexCoord2f(1,0); glVertex2f(g.xres, g.yres);
         glTexCoord2f(0,0); glVertex2f(0, g.yres);
     glEnd();
+
+    // restore exactly what was bound before
+    glBindTexture(GL_TEXTURE_2D, (GLuint)savedTex);
     glDisable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    
+    glMatrixMode(GL_TEXTURE); glLoadIdentity();
+    glMatrixMode(GL_MODELVIEW);
+    glEnable(GL_DEPTH_TEST);
 }
+
+
 
 void render_lose()
 {
-    if (!g.lose_initialized) {
-        g.lose_start = time(nullptr);
-        g.lose_initialized = 1;
-    }
-    double lose_time_elap = difftime(time(nullptr), g.lose_start);
-
-    
-    if (lose_time_elap < 3.0 && g.jump_scare_done == 0) {
-        
-        if (lose_time_elap < 0.01) {
-            alSourcei(srcIntro, AL_LOOPING, AL_FALSE);
-            alSourcePlay(srcIntro);
-        }
-    }
-    g.jump_scare_done = 1;
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     glViewport(0, 0, g.xres, g.yres);
@@ -587,41 +591,39 @@ void render_lose()
     glMatrixMode(GL_MODELVIEW); glLoadIdentity();
     glPushAttrib(GL_ENABLE_BIT);
     glDisable(GL_LIGHTING);
+    glDisable(GL_DEPTH_TEST);
 
     int bw = 200, bh = 60;
     int cx = g.xres / 2, cy = g.yres / 2;
-    glDisable(GL_DEPTH_TEST);
+
     glColor4f(0.1f, 0.1f, 0.1f, 0.85f);
     glBegin(GL_QUADS);
         glVertex2f(cx-bw/2, cy-bh/2); glVertex2f(cx+bw/2, cy-bh/2);
         glVertex2f(cx+bw/2, cy+bh/2); glVertex2f(cx-bw/2, cy+bh/2);
     glEnd();
+
     glColor3f(1.0f, 1.0f, 1.0f);
     glLineWidth(2.0f);
     glBegin(GL_LINE_LOOP);
         glVertex2f(cx-bw/2, cy-bh/2); glVertex2f(cx+bw/2, cy-bh/2);
         glVertex2f(cx+bw/2, cy+bh/2); glVertex2f(cx-bw/2, cy+bh/2);
     glEnd();
-    glMatrixMode(GL_TEXTURE);
-    glLoadIdentity();
-    glMatrixMode(GL_MODELVIEW);
-    
-    glDisable(GL_DEPTH_TEST);
-    //glPopAttrib();
+
     Rect r;
     r.bot = g.yres - 150;
     r.left = g.xres / 2;
     r.center = 20;
     ggprint16(&r, 16, 0x00ffffff, "The Monster Caught You");
     ggprint16(&r, 16, 0x00ffffff, "You Have Failed To Escape");
+
     Rect r2;
     r2.bot = cy;
     r2.left = cx;
     r2.center = 20;
     ggprint12(&r2, 16, 0x00ffffff, "Back to Menu");
+
     glEnable(GL_DEPTH_TEST);
     glPopAttrib();
-        
 }
 
 void render_win()
@@ -677,6 +679,8 @@ void render_win()
 
 void render_menu()
 {
+
+	
     if (g.game_sound_played == 0) {
             
         alSourcei(srcMenu, AL_LOOPING, AL_TRUE);
@@ -709,6 +713,7 @@ void render_menu()
         glVertex2f(cx-bw/2, cy-bh/2); glVertex2f(cx+bw/2, cy-bh/2);
         glVertex2f(cx+bw/2, cy+bh/2); glVertex2f(cx-bw/2, cy+bh/2);
     glEnd();
+	
 
     //glPopAttrib();
     Rect r;
@@ -762,13 +767,20 @@ void Global::render()
                 glTexCoord2f(0,0); glVertex2f(x0,y1);
             glEnd();
             glDisable(GL_TEXTURE_2D);
+	     glBindTexture(GL_TEXTURE_2D, 0);
+            glMatrixMode(GL_TEXTURE); glLoadIdentity();
+            glMatrixMode(GL_MODELVIEW);
         }
+	
+	glBindTexture(GL_TEXTURE_2D, 0);
+        glMatrixMode(GL_TEXTURE); glLoadIdentity();
+        glMatrixMode(GL_MODELVIEW); 
 
         Rect r;
         r.bot = g.yres - 50; 
         r.left = g.xres / 2; 
         r.center = 20;
-        ggprint16(&r, 16, 0x00ffffff, "UNCANNY VALLEY");
+        ggprint16(&r, 16, 0x00ffffff, "UNCANNY Hallway");
         Rect r2;
         r2.bot = (int)(g.yres * 0.15f); 
         r2.left = g.xres / 2; 
@@ -797,7 +809,39 @@ void Global::render()
     } else if (g.win_screen) {
         render_win();
     } else if(g.lose_screen) {
+	 if (!g.lose_initialized) {
+        g.lose_start = time(nullptr);
+        g.lose_initialized = 1;
+    }
+    double lose_time_elap = difftime(time(nullptr), g.lose_start);
+
+    if (lose_time_elap < 3.0 && g.jump_scare_done == 0) {
+        // jumpscare handled HERE at top level, same as start screen
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+        glViewport(0, 0, g.xres, g.yres);
+        glMatrixMode(GL_PROJECTION); glLoadIdentity();
+        gluOrtho2D(0, g.xres, 0, g.yres);
+        glMatrixMode(GL_MODELVIEW); glLoadIdentity();
+        glPushAttrib(GL_ENABLE_BIT);
+        glDisable(GL_LIGHTING);
+        if (lose_time_elap < 0.01) {
+            alSourcei(srcIntro, AL_LOOPING, AL_FALSE);
+            alSourcePlay(srcIntro);
+        }
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, scary_face.texid);
+        glColor3f(1.0f, 1.0f, 1.0f);
+        glBegin(GL_QUADS);
+            glTexCoord2f(0,1); glVertex2f(0, 0);
+            glTexCoord2f(1,1); glVertex2f(g.xres, 0);
+            glTexCoord2f(1,0); glVertex2f(g.xres, g.yres);
+            glTexCoord2f(0,0); glVertex2f(0, g.yres);
+        glEnd();
+        glPopAttrib();  // restores state just like start scree
+	} else {
         render_lose();
+	}
     } else {
         if (g.game_sound_played == 0) {
             alSourcei(srcGame, AL_LOOPING, AL_TRUE);
